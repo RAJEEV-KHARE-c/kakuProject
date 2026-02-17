@@ -1,0 +1,1 @@
+# Quick fix for app.py syntax error\n# Replace lines 647-651 in app.py with:\n\n        finally:\n            conn.close()\n\n# Remove the duplicate finally block and return statement inside finally

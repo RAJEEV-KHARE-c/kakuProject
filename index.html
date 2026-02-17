@@ -1,0 +1,1324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 Sensor Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            color: white;
+            font-size: 0.9em;
+        }
+
+        .status.connected {
+            background: rgba(76, 175, 80, 0.4);
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .card h2 {
+            color: #667eea;
+            font-size: 1.2em;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card h2[style*="color: white"] {
+            color: white;
+        }
+
+        .pet-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 15px 10px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.9em;
+            color: #333;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .pet-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+        }
+
+        .pet-btn.active {
+            border: 3px solid #FFD700;
+            transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(255,215,0,0.4);
+        }
+
+        .card-icon {
+            font-size: 1.5em;
+        }
+
+        .sensor-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #333;
+            margin: 10px 0;
+        }
+
+        .sensor-label {
+            color: #999;
+            font-size: 0.9em;
+            margin-bottom: 15px;
+        }
+
+        .gyro-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .gyro-item {
+            background: #f5f5f5;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .gyro-item .label {
+            font-size: 0.8em;
+            color: #999;
+            margin-bottom: 5px;
+        }
+
+        .gyro-item .value {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .orientation-card {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .orientation-display {
+            text-align: center;
+            padding: 20px 0;
+        }
+
+        .direction-indicator {
+            font-size: 3em;
+            font-weight: bold;
+            margin: 10px 0;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .direction-values {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .axis-value {
+            background: rgba(255,255,255,0.2);
+            padding: 8px;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .axis-label {
+            font-size: 0.8em;
+            opacity: 0.9;
+        }
+
+        .axis-number {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-top: 3px;
+        }
+
+        .confidence-bar {
+            margin-top: 10px;
+            height: 8px;
+            background: rgba(255,255,255,0.3);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            background: #fff;
+            border-radius: 4px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+
+        .camera-container {
+            position: relative;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            aspect-ratio: 16 / 9;
+            margin-bottom: 15px;
+        }
+
+        .camera-img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .camera-placeholder {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+            font-size: 3em;
+        }
+
+        .ai-caption {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 15px;
+            border-radius: 8px;
+            font-size: 0.9em;
+            line-height: 1.4;
+            margin-top: 10px;
+            text-align: left;
+            position: relative;
+            border-left: 4px solid #4CAF50;
+            display: none;
+        }
+
+        .ai-caption.show {
+            display: block;
+        }
+
+        .ai-caption-header {
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+            font-size: 0.85em;
+            opacity: 0.9;
+        }
+
+        .ai-caption-text {
+            font-size: 0.95em;
+        }
+
+        .ai-timestamp {
+            font-size: 0.75em;
+            opacity: 0.8;
+            margin-top: 8px;
+            font-style: italic;
+        }
+
+        .audio-visualizer {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-around;
+            height: 100px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            padding: 10px;
+            gap: 4px;
+        }
+
+        .audio-bar {
+            width: 8px;
+            background: linear-gradient(to top, #667eea, #764ba2);
+            border-radius: 4px;
+            transition: height 0.1s ease;
+        }
+
+        .sound-level {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #667eea;
+            text-align: center;
+        }
+
+        .sound-unit {
+            font-size: 0.6em;
+            color: #999;
+            display: block;
+            margin-top: 5px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f5f5f5;
+            color: #333;
+            border: 2px solid #667eea;
+        }
+
+        .btn-secondary:hover {
+            background: #f0f0f0;
+        }
+
+        .data-table {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            overflow-x: auto;
+        }
+
+        .data-table h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background: #f5f5f5;
+            padding: 12px;
+            text-align: left;
+            color: #333;
+            font-weight: 600;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        tr:hover {
+            background: #f9f9f9;
+        }
+
+        .timestamp {
+            color: #999;
+            font-size: 0.9em;
+        }
+
+        .loading {
+            text-align: center;
+            color: #999;
+            padding: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+
+            header h1 {
+                font-size: 1.8em;
+            }
+
+            .gyro-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎯 ESP32 Sensor Dashboard</h1>
+            <div class="status connected" id="connectionStatus">Connected</div>
+        </header>
+
+        <div class="dashboard">
+            <!-- Pet Animation Control Card -->
+            <div class="card" style="background: linear-gradient(135deg, #FF6B6B 0%, #FF8E72 100%); grid-column: 1 / -1;">
+                <h2><span class="card-icon">🐣</span> Pet Animation Control</h2>
+                <div class="sensor-label">Click a button to display pet animation on ESP32 OLED screen</div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; margin-top: 15px;">
+                    <button id="petInfant" class="pet-btn" onclick="setOLEDDisplay(0)" style="background: #FFE5E5;">
+                        <span style="font-size: 1.8em;">🐣</span>
+                        <span>INFANT</span>
+                    </button>
+                    <button id="petChild" class="pet-btn" onclick="setOLEDDisplay(1)" style="background: #B4E7FF;">
+                        <span style="font-size: 1.8em;">👶</span>
+                        <span>CHILD</span>
+                    </button>
+                    <button id="petAdult" class="pet-btn" onclick="setOLEDDisplay(2)" style="background: #D4F4DD;">
+                        <span style="font-size: 1.8em;">👨</span>
+                        <span>ADULT</span>
+                    </button>
+                    <button id="petOld" class="pet-btn" onclick="setOLEDDisplay(3)" style="background: #F4E4D4;">
+                        <span style="font-size: 1.8em;">👴</span>
+                        <span>OLD</span>
+                    </button>
+                </div>
+                <div id="petStatus" style="margin-top: 15px; text-align: center; color: white; font-weight: bold;">
+                    Loading current pet age...
+                </div>
+            </div>
+
+            <!-- Step Counter Card -->
+            <div class="card" style="background: linear-gradient(135deg, #4CAF50 0%, #81C784 100%); grid-column: 1 / -1;">
+                <h2><span class="card-icon">👟</span> Step Counter</h2>
+                <div class="sensor-label">Real-time steps walked detected by accelerometer</div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
+                    <div style="text-align: center;">
+                        <div style="font-size: 3em; font-weight: bold; color: white;" id="stepCountDisplay">0</div>
+                        <div style="font-size: 0.9em; color: rgba(255,255,255,0.9); margin-top: 5px;">Total Steps</div>
+                    </div>
+                    <div style="display: flex; flex-direction: column; justify-content: center;">
+                        <div style="font-size: 0.9em; color: rgba(255,255,255,0.9); margin-bottom: 5px;">Daily Steps</div>
+                        <div style="font-size: 2em; font-weight: bold; color: white;" id="dailyStepCountDisplay">0</div>
+                        <button class="pet-btn" onclick="resetStepCounter()" style="background: rgba(255,255,255,0.3); color: white; margin-top: 10px; font-weight: bold;">
+                            🔄 Reset Counter
+                        </button>
+                    </div>
+                </div>
+                <div id="stepStatus" style="margin-top: 15px; text-align: center; color: rgba(255,255,255,0.9); font-size: 0.9em;">
+                    Waiting for sensor data...
+                </div>
+            </div>
+
+            <!-- Microphone Card -->
+            <div class="card">
+                <h2><span class="card-icon">🎤</span> Microphone</h2>
+                <div class="sensor-label">Sound Level</div>
+                <div class="sound-level" id="micValue">0<span class="sound-unit">dB</span></div>
+                <div class="audio-visualizer" id="audioVisualizer">
+                    <div class="audio-bar" style="height: 20%;"></div>
+                    <div class="audio-bar" style="height: 40%;"></div>
+                    <div class="audio-bar" style="height: 30%;"></div>
+                    <div class="audio-bar" style="height: 60%;"></div>
+                    <div class="audio-bar" style="height: 50%;"></div>
+                </div>
+            </div>
+
+            <!-- Camera Card -->
+            <div class="card">
+                <h2><span class="card-icon">📷</span> ESP32 Camera</h2>
+                <div class="sensor-label">Binary Upload → uploads/images/ → Enhanced AI Analysis</div>
+                <div class="camera-container">
+                    <img id="cameraImage" class="camera-img" src="" alt="ESP32 Camera Feed">
+                    <div class="camera-placeholder" id="cameraPlaceholder">📷</div>
+                </div>
+                
+                <!-- AI Caption Section -->
+                <div id="aiCaption" class="ai-caption">
+                    <div class="ai-caption-header">
+                        <span>🤖</span>
+                        <span>Natural AI Analysis</span>
+                    </div>
+                    <div class="ai-caption-text" id="aiCaptionText">
+                        Waiting for ESP32 image to analyze with enhanced AI model...
+                    </div>
+                    <div class="ai-timestamp" id="aiTimestamp"></div>
+                </div>
+            </div>
+
+            <!-- Sound Card -->
+            <div class="card">
+                <h2><span class="card-icon">🔊</span> Audio Data</h2>
+                <div class="sensor-label">Frequency Analysis</div>
+                <div class="sensor-value" id="soundValue">0</div>
+                <div class="sensor-label">Samples/sec</div>
+            </div>
+
+            <!-- Accelerometer Card -->
+            <div class="card">
+                <h2><span class="card-icon">⚡</span> Accelerometer</h2>
+                <div class="gyro-grid">
+                    <div class="gyro-item">
+                        <div class="label">X-Axis (m/s²)</div>
+                        <div class="value" id="accelX">0.00</div>
+                    </div>
+                    <div class="gyro-item">
+                        <div class="label">Y-Axis (m/s²)</div>
+                        <div class="value" id="accelY">0.00</div>
+                    </div>
+                    <div class="gyro-item">
+                        <div class="label">Z-Axis (m/s²)</div>
+                        <div class="value" id="accelZ">0.00</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gyroscope Card -->
+            <div class="card">
+                <h2><span class="card-icon">🌀</span> Gyroscope</h2>
+                <div class="gyro-grid">
+                    <div class="gyro-item">
+                        <div class="label">X-Axis (°/s)</div>
+                        <div class="value" id="gyroX">0.00</div>
+                    </div>
+                    <div class="gyro-item">
+                        <div class="label">Y-Axis (°/s)</div>
+                        <div class="value" id="gyroY">0.00</div>
+                    </div>
+                    <div class="gyro-item">
+                        <div class="label">Z-Axis (°/s)</div>
+                        <div class="value" id="gyroZ">0.00</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Status Card -->
+            <div class="card">
+                <h2><span class="card-icon">ℹ️</span> System Status</h2>
+                <div class="gyro-grid">
+                    <div class="gyro-item">
+                        <div class="label">Last Update</div>
+                        <div class="value timestamp" id="lastUpdate">Never</div>
+                    </div>
+                    <div class="gyro-item">
+                        <div class="label">Uptime</div>
+                        <div class="value" id="uptime">0s</div>
+                    </div>
+                    <div class="gyro-item">
+                        <div class="label">Records</div>
+                        <div class="value" id="recordCount">0</div>
+                    </div>
+                    <div class="gyro-item">
+                        <div class="label">Frequency</div>
+                        <div class="value" id="frequency">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Device Orientation Card -->
+            <div class="card orientation-card">
+                <h2><span class="card-icon">🧭</span> Device Orientation</h2>
+                <div class="orientation-display">
+                    <div class="direction-indicator" id="directionIndicator">NEUTRAL</div>
+                    
+                    <div class="direction-values">
+                        <div class="axis-value">
+                            <div class="axis-label">CAL_AX</div>
+                            <div class="axis-number" id="calAX">0.000</div>
+                        </div>
+                        <div class="axis-value">
+                            <div class="axis-label">CAL_AY</div>
+                            <div class="axis-number" id="calAY">0.000</div>
+                        </div>
+                        <div class="axis-value">
+                            <div class="axis-label">CAL_AZ</div>
+                            <div class="axis-number" id="calAZ">0.000</div>
+                        </div>
+                    </div>
+                    
+                    <div class="confidence-bar">
+                        <div class="confidence-fill" id="confidenceFill"></div>
+                    </div>
+                    <div style="font-size: 0.9em; margin-top: 5px; opacity: 0.9;">
+                        Confidence: <span id="orientationConfidence">0</span>%
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div style="text-align: center; margin-bottom: 30px;">
+            <div class="controls">
+                <button class="btn-primary" onclick="startRecording()">📹 Start Recording</button>
+                <button class="btn-primary" onclick="stopRecording()">⏹️ Stop Recording</button>
+                <button class="btn-secondary" onclick="clearDatabase()">🗑️ Clear Database</button>
+                <button class="btn-secondary" onclick="downloadData()">⬇️ Download Data</button>
+            </div>
+        </div>
+
+        <!-- Data Table with Filters -->
+        <div class="data-table">
+            <h2>Sensor Data History</h2>
+            
+            <!-- Filter Controls -->
+            <div style="margin-bottom: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; background: #f9f9f9; padding: 15px; border-radius: 8px;">
+                <div>
+                    <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #333;">Records to Show:</label>
+                    <select id="recordLimit" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;">
+                        <option value="10">Last 10</option>
+                        <option value="50" selected>Last 50</option>
+                        <option value="100">Last 100</option>
+                        <option value="500">Last 500</option>
+                        <option value="1000">Last 1000</option>
+                        <option value="all">All Records</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #333;">From Date:</label>
+                    <input type="datetime-local" id="filterFrom" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+
+                <div>
+                    <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #333;">To Date:</label>
+                    <input type="datetime-local" id="filterTo" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+
+                <div>
+                    <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #333;">Search in Table:</label>
+                    <input type="text" id="tableSearch" placeholder="Search data..." style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+
+                <div style="display: flex; gap: 10px; align-items: flex-end;">
+                    <button class="btn-primary" onclick="refreshData()" style="flex: 1; padding: 8px;">🔄 Refresh</button>
+                    <button class="btn-secondary" onclick="clearFilters()" style="flex: 1; padding: 8px;">Reset</button>
+                </div>
+            </div>
+
+            <!-- Stats Bar -->
+            <div style="margin-bottom: 15px; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;">
+                <div style="background: #e3f2fd; padding: 10px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 0.9em; color: #666;">Total Records</div>
+                    <div style="font-size: 1.5em; font-weight: bold; color: #1976d2;" id="totalRecords">0</div>
+                </div>
+                <div style="background: #f3e5f5; padding: 10px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 0.9em; color: #666;">Displayed</div>
+                    <div style="font-size: 1.5em; font-weight: bold; color: #7b1fa2;" id="displayedRecords">0</div>
+                </div>
+                <div style="background: #e8f5e9; padding: 10px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 0.9em; color: #666;">Date Range</div>
+                    <div style="font-size: 0.9em; font-weight: bold; color: #388e3c;" id="dateRange">NA</div>
+                </div>
+            </div>
+
+            <!-- Table -->
+            <div style="overflow-x: auto;">
+                <table id="dataTable">
+                    <thead>
+                        <tr>
+                            <th style="cursor: pointer;" onclick="sortTable(0)">Timestamp ↕</th>
+                            <th style="cursor: pointer;" onclick="sortTable(1)">Accel X ↕</th>
+                            <th style="cursor: pointer;" onclick="sortTable(2)">Accel Y ↕</th>
+                            <th style="cursor: pointer;" onclick="sortTable(3)">Accel Z ↕</th>
+                            <th style="cursor: pointer;" onclick="sortTable(4)">Gyro X ↕</th>
+                            <th style="cursor: pointer;" onclick="sortTable(5)">Gyro Y ↕</th>
+                            <th style="cursor: pointer;" onclick="sortTable(6)">Gyro Z ↕</th>
+                            <th style="cursor: pointer;" onclick="sortTable(7)">Sound ↕</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        <tr>
+                            <td colspan="8" class="loading">Waiting for data...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Load More Button -->
+            <div style="text-align: center; margin-top: 20px;">
+                <button class="btn-primary" id="loadMoreBtn" onclick="loadMore()" style="display: none;">📥 Load More Records</button>
+                <div id="loadingIndicator" style="display: none; color: #999; padding: 10px;">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.5.4/socket.io.js"></script>
+    <script>
+        let startTime = Date.now();
+        let recordingActive = false;
+        let dataBuffer = [];
+        let allHistoricalData = [];  // Store all fetched data
+        let allData = [];            // All data from database
+        let currentSortColumn = null;
+        let currentSortAsc = true;
+        let displayLimit = 50;
+        let displayedCount = 0;
+        let socket = null;
+        
+        // ==================== OLED DISPLAY ANIMATION CONTROL ====================
+        const animationNames = ["🐣 INFANT", "👶 CHILD", "👨 ADULT", "👴 OLD"];
+        
+        function setOLEDDisplay(animationId) {
+            fetch('/api/oled-display/set', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ animation_id: animationId, animation_type: 'pet' })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    console.log('✅ OLED display changed to:', data.animation_name);
+                    updateOLEDDisplayUI(animationId);
+                    // Show visual feedback
+                    alert('🎬 OLED display changed to: ' + data.animation_name);
+                } else {
+                    console.error('❌ Failed to set OLED display:', data.message);
+                    alert('❌ Error: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('❌ Error setting OLED display:', error);
+                alert('❌ Connection error: ' + error);
+            });
+        }
+        
+        function getOLEDDisplay() {
+            fetch('/api/oled-display/get')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        console.log('Current OLED animation:', data.animation_name);
+                        updateOLEDDisplayUI(data.animation_id);
+                    }
+                })
+                .catch(error => {
+                    console.error('❌ Error getting OLED display:', error);
+                });
+        }
+        
+        function updateOLEDDisplayUI(animationId) {
+            // Remove active class from all buttons
+            document.getElementById('petInfant').classList.remove('active');
+            document.getElementById('petChild').classList.remove('active');
+            document.getElementById('petAdult').classList.remove('active');
+            document.getElementById('petOld').classList.remove('active');
+            
+            // Add active class to selected button
+            const buttons = ['petInfant', 'petChild', 'petAdult', 'petOld'];
+            if (buttons[animationId]) {
+                document.getElementById(buttons[animationId]).classList.add('active');
+            }
+            
+            // Update status text
+            document.getElementById('petStatus').textContent = '✅ Current: ' + animationNames[animationId];
+        }
+
+        // 👟 Step Counter Functions
+        function getStepCounter() {
+            fetch('/api/step-counter/get')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        console.log('👟 Step counter:', data.total_steps);
+                        updateStepCounterUI(data.total_steps, data.daily_steps);
+                    }
+                })
+                .catch(error => {
+                    console.error('❌ Error getting step counter:', error);
+                });
+        }
+
+        function resetStepCounter() {
+            if (confirm('Are you sure you want to reset the step counter to 0?')) {
+                fetch('/api/step-counter/reset', {
+                    method: 'POST'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        console.log('🔄 Step counter reset:', data.message);
+                        updateStepCounterUI(0, 0);
+                        alert('✅ Step counter has been reset to 0');
+                    }
+                })
+                .catch(error => {
+                    console.error('❌ Error resetting step counter:', error);
+                    alert('❌ Error resetting counter: ' + error);
+                });
+            }
+        }
+
+        function updateStepCounterUI(totalSteps, dailySteps) {
+            document.getElementById('stepCountDisplay').textContent = totalSteps;
+            document.getElementById('dailyStepCountDisplay').textContent = dailySteps || 0;
+            document.getElementById('stepStatus').textContent = `✅ Last updated: ${new Date().toLocaleTimeString()}`;
+        }
+
+        // Initialize Socket.IO connection
+        function initWebSocket() {
+            socket = io();
+
+            socket.on('connect', function() {
+                console.log('Socket.IO connected');
+                updateConnectionStatus(true);
+                
+                // Get current OLED display animation on connection
+                getOLEDDisplay();
+                
+                // 👟 Get current step counter on connection
+                getStepCounter();
+                
+                // Load latest AI-analyzed image on connection
+                loadLatestAIImage();
+            });
+            
+            // Listen for OLED display changes from other clients
+            socket.on('oled_display_changed', function(data) {
+                console.log('🎬 OLED display changed by another client:', data.animation_name);
+                updateOLEDDisplayUI(data.animation_id);
+            });
+
+            // 👟 Listen for step counter updates
+            socket.on('step_counter_updated', function(data) {
+                console.log('👟 Step counter updated:', data.total_steps);
+                updateStepCounterUI(data.total_steps, data.daily_steps);
+            });
+
+            // Function to load the latest AI-analyzed image
+            function loadLatestAIImage() {
+                fetch('/api/ai-images?limit=1')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'success' && data.images && data.images.length > 0) {
+                            const latestImage = data.images[0];
+                            
+                            // Update camera image
+                            document.getElementById('cameraImage').src = latestImage.image_url;
+                            document.getElementById('cameraPlaceholder').style.display = 'none';
+                            document.getElementById('cameraImage').style.display = 'block';
+                            
+                            // Update AI caption
+                            const aiCaptionElement = document.getElementById('aiCaption');
+                            const aiCaptionTextElement = document.getElementById('aiCaptionText');
+                            const aiTimestampElement = document.getElementById('aiTimestamp');
+                            
+                            if (latestImage.ai_caption && latestImage.ai_caption !== 'No AI analysis available') {
+                                aiCaptionTextElement.textContent = latestImage.ai_caption;
+                                
+                                if (latestImage.timestamp) {
+                                    const timestamp = new Date(latestImage.timestamp);
+                                    aiTimestampElement.textContent = `Analyzed at ${timestamp.toLocaleString()}`;
+                                }
+                                
+                                aiCaptionElement.classList.add('show');
+                                
+                                console.log('🤖 Loaded latest AI-analyzed image:', latestImage.filename);
+                            }
+                        } else {
+                            console.log('📷 No AI-analyzed images found');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('❌ Error loading latest AI image:', error);
+                    });
+            }
+
+            socket.on('sensor_update', function(data) {
+                console.log('Received sensor update:', data);
+                updateDashboard(data);
+                if (recordingActive) {
+                    dataBuffer.push({...data, timestamp: new Date().toISOString()});
+                }
+            });
+
+            socket.on('camera_update', function(data) {
+                if (data.image_url) {
+                    document.getElementById('cameraImage').src = data.image_url;
+                    document.getElementById('cameraPlaceholder').style.display = 'none';
+                    document.getElementById('cameraImage').style.display = 'block';
+                    
+                    // Display AI caption if available
+                    if (data.ai_caption) {
+                        const aiCaptionElement = document.getElementById('aiCaption');
+                        const aiCaptionTextElement = document.getElementById('aiCaptionText');
+                        const aiTimestampElement = document.getElementById('aiTimestamp');
+                        
+                        aiCaptionTextElement.textContent = data.ai_caption;
+                        
+                        if (data.timestamp) {
+                            const timestamp = new Date(data.timestamp);
+                            aiTimestampElement.textContent = `Analyzed at ${timestamp.toLocaleTimeString()}`;
+                        }
+                        
+                        aiCaptionElement.classList.add('show');
+                        
+                        // Add a gentle animation
+                        aiCaptionElement.style.opacity = '0';
+                        aiCaptionElement.style.transform = 'translateY(10px)';
+                        setTimeout(() => {
+                            aiCaptionElement.style.transition = 'all 0.3s ease';
+                            aiCaptionElement.style.opacity = '1';
+                            aiCaptionElement.style.transform = 'translateY(0)';
+                        }, 100);
+                    }
+                } else if (data.camera_image) {
+                    // Fallback for base64 images (backward compatibility)
+                    document.getElementById('cameraImage').src = 'data:image/jpeg;base64,' + data.camera_image;
+                    document.getElementById('cameraPlaceholder').style.display = 'none';
+                    document.getElementById('cameraImage').style.display = 'block';
+                }
+            });
+
+            socket.on('orientation_update', function(data) {
+                console.log('Received orientation update:', data);
+                
+                // Update direction indicator
+                const directionElement = document.getElementById('directionIndicator');
+                directionElement.textContent = data.direction || 'UNKNOWN';
+                
+                // Update calibrated accelerometer values
+                document.getElementById('calAX').textContent = (data.calibrated_ax || 0).toFixed(3);
+                document.getElementById('calAY').textContent = (data.calibrated_ay || 0).toFixed(3);
+                document.getElementById('calAZ').textContent = (data.calibrated_az || 0).toFixed(3);
+                
+                // Update confidence bar and text
+                const confidence = data.confidence || 0;
+                document.getElementById('orientationConfidence').textContent = confidence.toFixed(0);
+                document.getElementById('confidenceFill').style.width = confidence + '%';
+                
+                // Add visual feedback with colors based on direction
+                const orientationCard = document.querySelector('.orientation-card');
+                orientationCard.className = 'card orientation-card'; // Reset classes
+                
+                switch(data.direction) {
+                    case 'FORWARD':
+                        orientationCard.style.background = 'linear-gradient(135deg, #2196F3 0%, #1976D2 100%)';
+                        break;
+                    case 'BACK':
+                        orientationCard.style.background = 'linear-gradient(135deg, #FF9800 0%, #F57C00 100%)';
+                        break;
+                    case 'LEFT':
+                        orientationCard.style.background = 'linear-gradient(135deg, #9C27B0 0%, #7B1FA2 100%)';
+                        break;
+                    case 'RIGHT':
+                        orientationCard.style.background = 'linear-gradient(135deg, #E91E63 0%, #C2185B 100%)';
+                        break;
+                    case 'INVERTED':
+                        orientationCard.style.background = 'linear-gradient(135deg, #F44336 0%, #D32F2F 100%)';
+                        break;
+                    case 'NEUTRAL':
+                    default:
+                        orientationCard.style.background = 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)';
+                        break;
+                }
+            });
+
+            socket.on('disconnect', function() {
+                console.log('Socket.IO disconnected');
+                updateConnectionStatus(false);
+            });
+
+            socket.on('connect_error', function(error) {
+                console.error('Socket.IO error:', error);
+                updateConnectionStatus(false);
+            });
+        }
+
+        // Update dashboard with sensor data
+        function updateDashboard(data) {
+            // Update accelerometer
+            if (data.accel_x !== undefined) {
+                document.getElementById('accelX').textContent = data.accel_x.toFixed(2);
+                document.getElementById('accelY').textContent = data.accel_y.toFixed(2);
+                document.getElementById('accelZ').textContent = data.accel_z.toFixed(2);
+            }
+
+            // Update gyroscope
+            if (data.gyro_x !== undefined) {
+                document.getElementById('gyroX').textContent = data.gyro_x.toFixed(2);
+                document.getElementById('gyroY').textContent = data.gyro_y.toFixed(2);
+                document.getElementById('gyroZ').textContent = data.gyro_z.toFixed(2);
+            }
+
+            // Update microphone
+            if (data.mic_level !== undefined) {
+                document.getElementById('micValue').innerHTML = data.mic_level.toFixed(1) + '<span class="sound-unit">dB</span>';
+                updateAudioVisualizer(data.mic_level);
+            }
+
+            // Update sound data
+            if (data.sound_data !== undefined) {
+                document.getElementById('soundValue').textContent = data.sound_data;
+            }
+
+            // Update camera image
+            if (data.camera_image) {
+                document.getElementById('cameraImage').src = 'data:image/jpeg;base64,' + data.camera_image;
+                document.getElementById('cameraPlaceholder').style.display = 'none';
+            }
+
+            // Update system status
+            document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+            document.getElementById('uptime').textContent = formatUptime(Date.now() - startTime);
+            document.getElementById('recordCount').textContent = (dataBuffer.length || 0);
+            document.getElementById('frequency').textContent = '60Hz';
+
+            // Add to table
+            addTableRow(data);
+        }
+
+        function updateAudioVisualizer(level) {
+            const bars = document.querySelectorAll('.audio-bar');
+            const maxHeight = Math.min(100, level / 5);
+            bars.forEach((bar, index) => {
+                const randomVariation = Math.random() * 0.3;
+                bar.style.height = (maxHeight * randomVariation) + '%';
+            });
+        }
+
+        function updateConnectionStatus(connected) {
+            const status = document.getElementById('connectionStatus');
+            if (connected) {
+                status.textContent = 'Connected';
+                status.className = 'status connected';
+            } else {
+                status.textContent = 'Disconnected';
+                status.className = 'status';
+            }
+        }
+
+        function formatUptime(ms) {
+            const seconds = Math.floor(ms / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+
+            if (hours > 0) return hours + 'h ' + (minutes % 60) + 'm';
+            if (minutes > 0) return minutes + 'm ' + (seconds % 60) + 's';
+            return seconds + 's';
+        }
+
+        function addTableRow(data) {
+            const tbody = document.getElementById('tableBody');
+            
+            // Clear placeholder row
+            if (tbody.rows.length === 1 && tbody.rows[0].cells.length === 8) {
+                tbody.innerHTML = '';
+            }
+
+            // Create new row
+            const row = tbody.insertRow(0);
+            row.innerHTML = `
+                <td class="timestamp">${new Date().toLocaleTimeString()}</td>
+                <td>${(data.accel_x || 0).toFixed(2)}</td>
+                <td>${(data.accel_y || 0).toFixed(2)}</td>
+                <td>${(data.accel_z || 0).toFixed(2)}</td>
+                <td>${(data.gyro_x || 0).toFixed(2)}</td>
+                <td>${(data.gyro_y || 0).toFixed(2)}</td>
+                <td>${(data.gyro_z || 0).toFixed(2)}</td>
+                <td>${(data.mic_level || 0).toFixed(1)}</td>
+            `;
+
+            // Keep only last 50 rows
+            while (tbody.rows.length > 50) {
+                tbody.deleteRow(tbody.rows.length - 1);
+            }
+        }
+
+        // ==================== HISTORICAL DATA FUNCTIONS ====================
+
+        function refreshData() {
+            const limit = document.getElementById('recordLimit').value;
+            const fromDate = document.getElementById('filterFrom').value;
+            const toDate = document.getElementById('filterTo').value;
+
+            displayedCount = 0;
+            
+            fetch('/api/latest?limit=' + (limit === 'all' ? 100000 : limit))
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.records.length > 0) {
+                        allData = data.records;
+                        
+                        // Filter by date if specified
+                        let filteredData = allData;
+                        if (fromDate) {
+                            const from = new Date(fromDate).getTime();
+                            filteredData = filteredData.filter(r => new Date(r.timestamp).getTime() >= from);
+                        }
+                        if (toDate) {
+                            const to = new Date(toDate).getTime();
+                            filteredData = filteredData.filter(r => new Date(r.timestamp).getTime() <= to);
+                        }
+                        
+                        allHistoricalData = filteredData;
+                        populateTable(filteredData.slice(0, displayLimit));
+                        
+                        // Update stats
+                        document.getElementById('totalRecords').textContent = allData.length;
+                        document.getElementById('displayedRecords').textContent = allHistoricalData.length;
+                        
+                        if (allHistoricalData.length > 0) {
+                            const dates = allHistoricalData.map(r => r.timestamp);
+                            const earliest = new Date(dates[dates.length - 1]).toLocaleDateString();
+                            const latest = new Date(dates[0]).toLocaleDateString();
+                            document.getElementById('dateRange').textContent = `${earliest} to ${latest}`;
+                        }
+                        
+                        // Show/hide load more button
+                        if (allHistoricalData.length > displayLimit) {
+                            document.getElementById('loadMoreBtn').style.display = 'block';
+                        } else {
+                            document.getElementById('loadMoreBtn').style.display = 'none';
+                        }
+                    }
+                })
+                .catch(error => console.error('Error fetching data:', error));
+        }
+
+        function populateTable(data) {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="loading">No data found</td></tr>';
+                return;
+            }
+
+            data.forEach(record => {
+                const row = tbody.insertRow();
+                const timestamp = new Date(record.timestamp).toLocaleString();
+                row.innerHTML = `
+                    <td class="timestamp">${timestamp}</td>
+                    <td>${(record.accel_x || 0).toFixed(2)}</td>
+                    <td>${(record.accel_y || 0).toFixed(2)}</td>
+                    <td>${(record.accel_z || 0).toFixed(2)}</td>
+                    <td>${(record.gyro_x || 0).toFixed(2)}</td>
+                    <td>${(record.gyro_y || 0).toFixed(2)}</td>
+                    <td>${(record.gyro_z || 0).toFixed(2)}</td>
+                    <td>${(record.mic_level || 0).toFixed(1)}</td>
+                `;
+            });
+
+            displayedCount = data.length;
+            document.getElementById('displayedRecords').textContent = displayedCount;
+        }
+
+        function loadMore() {
+            const nextLimit = displayedCount + 50;
+            populateTable(allHistoricalData.slice(0, nextLimit));
+            
+            if (nextLimit >= allHistoricalData.length) {
+                document.getElementById('loadMoreBtn').style.display = 'none';
+            }
+        }
+
+        function sortTable(columnIndex) {
+            if (currentSortColumn === columnIndex) {
+                currentSortAsc = !currentSortAsc;
+            } else {
+                currentSortColumn = columnIndex;
+                currentSortAsc = true;
+            }
+
+            const tbody = document.getElementById('tableBody');
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+
+            rows.sort((a, b) => {
+                let aVal = a.cells[columnIndex].textContent;
+                let bVal = b.cells[columnIndex].textContent;
+
+                // Try to convert to number if applicable
+                if (columnIndex > 0) {
+                    aVal = parseFloat(aVal) || aVal;
+                    bVal = parseFloat(bVal) || bVal;
+                }
+
+                if (typeof aVal === 'number' && typeof bVal === 'number') {
+                    return currentSortAsc ? aVal - bVal : bVal - aVal;
+                } else {
+                    return currentSortAsc ? 
+                        aVal.toString().localeCompare(bVal.toString()) :
+                        bVal.toString().localeCompare(aVal.toString());
+                }
+            });
+
+            tbody.innerHTML = '';
+            rows.forEach(row => tbody.appendChild(row));
+        }
+
+        // Add search functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchInput = document.getElementById('tableSearch');
+            if (searchInput) {
+                searchInput.addEventListener('keyup', function() {
+                    const searchTerm = this.value.toLowerCase();
+                    const tbody = document.getElementById('tableBody');
+                    const rows = Array.from(tbody.querySelectorAll('tr'));
+
+                    rows.forEach(row => {
+                        const text = row.textContent.toLowerCase();
+                        row.style.display = text.includes(searchTerm) ? '' : 'none';
+                    });
+                });
+            }
+
+            // Update record limit selection
+            document.getElementById('recordLimit').addEventListener('change', refreshData);
+        });
+
+        function clearFilters() {
+            document.getElementById('recordLimit').value = '50';
+            document.getElementById('filterFrom').value = '';
+            document.getElementById('filterTo').value = '';
+            document.getElementById('tableSearch').value = '';
+            refreshData();
+        }
+
+        function startRecording() {
+            recordingActive = true;
+            dataBuffer = [];
+            alert('Recording started!');
+        }
+
+        function stopRecording() {
+            recordingActive = false;
+            alert('Recording stopped! ' + dataBuffer.length + ' records saved.');
+            downloadData();
+        }
+
+        function downloadData() {
+            if (dataBuffer.length === 0) {
+                alert('No data to download. Start recording first!');
+                return;
+            }
+
+            const csv = convertToCSV(dataBuffer);
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'sensor_data_' + new Date().getTime() + '.csv';
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        }
+
+        function convertToCSV(data) {
+            const headers = ['Timestamp', 'Accel X', 'Accel Y', 'Accel Z', 'Gyro X', 'Gyro Y', 'Gyro Z', 'Mic Level', 'Sound Data'];
+            const rows = data.map(d => [
+                d.timestamp,
+                d.accel_x,
+                d.accel_y,
+                d.accel_z,
+                d.gyro_x,
+                d.gyro_y,
+                d.gyro_z,
+                d.mic_level,
+                d.sound_data
+            ]);
+
+            let csv = headers.join(',') + '\n';
+            rows.forEach(row => {
+                csv += row.join(',') + '\n';
+            });
+            return csv;
+        }
+
+        function clearDatabase() {
+            if (confirm('Are you sure you want to clear all data from the database?')) {
+                fetch('/api/clear', { method: 'POST' })
+                    .then(response => response.json())
+                    .then(data => {
+                        alert(data.message);
+                        dataBuffer = [];
+                        refreshData();
+                    })
+                    .catch(error => console.error('Error:', error));
+            }
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            initWebSocket();
+            refreshData();
+            loadLatestImage(); // Load latest image on page load
+            
+            // Setup event listeners
+            document.getElementById('recordLimit').addEventListener('change', refreshData);
+        });
+
+        // Function to load the latest image
+        function loadLatestImage() {
+            fetch('/api/latest-image')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.image_url) {
+                        document.getElementById('cameraImage').src = data.image_url;
+                        document.getElementById('cameraPlaceholder').style.display = 'none';
+                        document.getElementById('cameraImage').style.display = 'block';
+                        console.log('Loaded latest image:', data.image_url);
+                    } else {
+                        console.log('No latest image available');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading latest image:', error);
+                });
+        }
+    </script>
+</body>
+</html>
