@@ -695,6 +695,8 @@
 
     <script src="https://cdn.socket.io/4.5.4/socket.io.js"></script>
     <script>
+        const API_BASE = "https://kakuproject.onrender.com";
+
         let startTime = Date.now();
         let recordingActive = false;
         let dataBuffer = [];
@@ -710,7 +712,7 @@
         const animationNames = ["🐣 INFANT", "👶 CHILD", "👨 ADULT", "👴 OLD"];
         
         function setOLEDDisplay(animationId) {
-            fetch('/api/oled-display/set', {
+            fetch(API_BASE +'/api/oled-display/set', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -736,7 +738,7 @@
         }
         
         function getOLEDDisplay() {
-            fetch('/api/oled-display/get')
+            fetch(API_BASE +'/api/oled-display/get')
                 .then(response => response.json())
                 .then(data => {
                     if (data.status === 'success') {
@@ -768,7 +770,7 @@
 
         // 👟 Step Counter Functions
         function getStepCounter() {
-            fetch('/api/step-counter/get')
+            fetch(API_BASE +'/api/step-counter/get')
                 .then(response => response.json())
                 .then(data => {
                     if (data.status === 'success') {
@@ -783,7 +785,7 @@
 
         function resetStepCounter() {
             if (confirm('Are you sure you want to reset the step counter to 0?')) {
-                fetch('/api/step-counter/reset', {
+                fetch(API_BASE +'/api/step-counter/reset', {
                     method: 'POST'
                 })
                 .then(response => response.json())
@@ -809,7 +811,11 @@
 
         // Initialize Socket.IO connection
         function initWebSocket() {
-            socket = io();
+            socket = io(API_BASE, {
+                transports: ["websocket", "polling"],
+                withCredentials: true
+            });
+
 
             socket.on('connect', function() {
                 console.log('Socket.IO connected');
@@ -839,7 +845,7 @@
 
             // Function to load the latest AI-analyzed image
             function loadLatestAIImage() {
-                fetch('/api/ai-images?limit=1')
+                fetch(API_BASE +'/api/ai-images?limit=1')
                     .then(response => response.json())
                     .then(data => {
                         if (data.status === 'success' && data.images && data.images.length > 0) {
@@ -1086,7 +1092,7 @@
 
             displayedCount = 0;
             
-            fetch('/api/latest?limit=' + (limit === 'all' ? 100000 : limit))
+            fetch(API_BASE + '/api/latest?limit=' + (limit === 'all' ? 100000 : limit))
                 .then(response => response.json())
                 .then(data => {
                     if (data.success && data.records.length > 0) {
@@ -1280,7 +1286,7 @@
 
         function clearDatabase() {
             if (confirm('Are you sure you want to clear all data from the database?')) {
-                fetch('/api/clear', { method: 'POST' })
+                fetch(API_BASE + '/api/clear', { method: 'POST' })
                     .then(response => response.json())
                     .then(data => {
                         alert(data.message);
@@ -1303,7 +1309,7 @@
 
         // Function to load the latest image
         function loadLatestImage() {
-            fetch('/api/latest-image')
+            fetch(API_BASE +'/api/latest-image')
                 .then(response => response.json())
                 .then(data => {
                     if (data.success && data.image_url) {
